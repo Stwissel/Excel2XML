@@ -21,6 +21,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
@@ -60,6 +61,7 @@ public class E2xCmdline {
 		options.addOption("o", "output", true, "Output XML file");
 		options.addOption("w", "workbooks", true, "optional: Workbook numbers to export 0,1,2,...,n");
 		options.addOption("e", "empty", false, "optional: generate tags for empty cells");
+		options.addOption("s", "single", false, "optional: export all worksheets into a single output file");
 		final CommandLine cmd = parser.parse(options, args);
 		E2xCmdline ex = new E2xCmdline(cmd, options);
 		ex.parse();
@@ -69,6 +71,8 @@ public class E2xCmdline {
 
 	private final boolean exportAllSheets;
 	private final boolean exportEmptyCells;
+	private final boolean exportSingleFile;
+
 	// Input file with extension
 	private String inputFileName;
 	// Output file without extension!!
@@ -76,6 +80,28 @@ public class E2xCmdline {
 
 	private final Set<Integer> sheetNumbers = new HashSet<Integer>();
 
+	/**
+	 * Constructor for programatic use
+	 * 
+	 * @param emptyCells
+	 *            Should it export empty cells
+	 * @param allSheets
+	 *            Should it export all sheets
+	 */
+	public E2xCmdline(final boolean emptyCells, final boolean allSheets) {
+		this.exportAllSheets = allSheets;
+		this.exportEmptyCells = emptyCells;
+		this.exportSingleFile = true;
+	}
+
+	/**
+	 * Constructor for command line use
+	 * 
+	 * @param cmd
+	 *            the parameters ready parsed
+	 * @param options
+	 *            the expected options
+	 */
 	public E2xCmdline(final CommandLine cmd, final Options options) {
 		boolean canContinue = true;
 		if (cmd.hasOption("w")) {
@@ -107,11 +133,27 @@ public class E2xCmdline {
 		}
 
 		this.exportEmptyCells = cmd.hasOption("e");
+		this.exportSingleFile = cmd.hasOption("s");
 
 		if (!canContinue) {
 			final HelpFormatter formatter = new HelpFormatter();
 			formatter.printHelp("excel2xml", options);
 			System.exit(1);
+		}
+		
+		if (this.exportEmptyCells) {
+			System.out.println("- Generating empty cells");
+		}
+		if (this.exportSingleFile) {
+			System.out.println("- Output to single file");
+		} else {
+			System.out.println("- Output to one file per sheet");
+		}
+		
+		if (this.exportAllSheets) {
+			System.out.println("- Exporting all sheets");
+		} else {
+			System.out.println("- Exporting selected sheets");
 		}
 
 	}
@@ -125,23 +167,12 @@ public class E2xCmdline {
 	 * @throws UnsupportedEncodingException
 	 * @throws FileNotFoundException
 	 */
-	private void export(final XSSFSheet sheet)
+	private void export(final XSSFSheet sheet, final XMLStreamWriter out)
 			throws UnsupportedEncodingException, XMLStreamException, FactoryConfigurationError, FileNotFoundException {
-		final String outputSheetName = this.outputFileName + "." + sheet.getSheetName() + OUTPUT_EXTENSION;
-		final File outFile = new File(outputSheetName);
-		if (outFile.exists()) {
-			outFile.delete();
-		}
-
-		OutputStream outputStream = new FileOutputStream(outFile);
-		XMLOutputFactory factory = XMLOutputFactory.newInstance();
-
-		XMLStreamWriter out = factory.createXMLStreamWriter(new OutputStreamWriter(outputStream, "utf-8"));
 		boolean isFirst = true;
 		final Map<String, String> columns = new HashMap<String, String>();
 		final String sheetName = sheet.getSheetName();
 		System.out.print(sheetName);
-		out.writeStartDocument();
 		out.writeStartElement("sheet");
 		out.writeAttribute("name", sheetName);
 		Iterator<Row> rowIterator = sheet.rowIterator();
@@ -155,11 +186,7 @@ public class E2xCmdline {
 			}
 		}
 		out.writeEndElement();
-		out.writeEndDocument();
 		System.out.println("..");
-
-		out.close();
-
 	}
 
 	private String getCellValue(final Cell cell) {
@@ -208,69 +235,135 @@ public class E2xCmdline {
 	}
 
 	/**
+	 * Create an XML Streamwriter to write into an output Stream
+	 * 
+	 * @param outputStream
+	 *            the steam e.g. a file
+	 * @return the StreamWriter
+	 * @throws XMLStreamException
+	 * @throws UnsupportedEncodingException
+	 */
+	private XMLStreamWriter getXMLWriter(final OutputStream outputStream)
+			throws UnsupportedEncodingException, XMLStreamException {
+		XMLOutputFactory factory = XMLOutputFactory.newInstance();
+		XMLStreamWriter out = factory.createXMLStreamWriter(new OutputStreamWriter(outputStream, "utf-8"));
+		return out;
+	}
+
+	private XMLStreamWriter getXMLWriter(XSSFSheet sheet)
+			throws FileNotFoundException, UnsupportedEncodingException, XMLStreamException {
+		final String outputSheetName = this.outputFileName + "." + sheet.getSheetName() + OUTPUT_EXTENSION;
+		final File outFile = new File(outputSheetName);
+		if (outFile.exists()) {
+			outFile.delete();
+		}
+		OutputStream outputStream = new FileOutputStream(outFile);
+		return this.getXMLWriter(outputStream);
+	}
+
+	/**
 	 * Reads the input file and exports all sheets
 	 *
 	 * @throws IOException
 	 * @throws FactoryConfigurationError
 	 * @throws XMLStreamException
 	 */
-	private void parse() throws IOException {
-		final FileInputStream inputStream = new FileInputStream(new File(this.inputFileName));
+	private void parse() throws IOException, XMLStreamException {
+		final InputStream inputStream = new FileInputStream(new File(this.inputFileName));
 		XSSFWorkbook workbook = new XSSFWorkbook(inputStream);
 		int sheetCount = workbook.getNumberOfSheets();
-		if (this.exportAllSheets) {
-			for (int i = 0; i < sheetCount; i++) {
+		XMLStreamWriter out = null;
+
+		if (this.exportSingleFile) {
+			final String targetFile = this.outputFileName + OUTPUT_EXTENSION;
+			System.out.println("Exporting Workbook to "+targetFile);
+			final File outFile = new File(targetFile);
+			if (outFile.exists()) {
+				outFile.delete();
+			}
+
+			out = this.getXMLWriter(new FileOutputStream(outFile));
+			out.writeStartDocument();
+			out.writeStartElement("workbook");
+		}
+
+		for (int i = 0; i < sheetCount; i++) {
+			if (this.exportAllSheets || this.sheetNumbers.contains(String.valueOf(i))) {
 				final XSSFSheet sheet = workbook.getSheetAt(i);
+				if (!this.exportSingleFile) {
+					out = this.getXMLWriter(sheet);
+					out.writeStartDocument();
+				}
 				try {
-					this.export(sheet);
+					this.export(sheet, out);
 				} catch (UnsupportedEncodingException | FileNotFoundException | XMLStreamException
 						| FactoryConfigurationError e) {
 					e.printStackTrace();
 				}
-			}
-		} else {
-			this.sheetNumbers.forEach(bigI -> {
-				int i = bigI.intValue();
-				if (i < sheetCount) {
-					final XSSFSheet sheet = workbook.getSheetAt(i);
-
-					try {
-						this.export(sheet);
-					} catch (UnsupportedEncodingException | FileNotFoundException | XMLStreamException
-							| FactoryConfigurationError e) {
-						e.printStackTrace();
-					}
-				} else {
-					System.err.println("I don't have a sheet at position " + String.valueOf(i));
+				if (!this.exportSingleFile) {
+					out.writeEndDocument();
+					out.close();
 				}
-			});
+			}
+
+		}
+		// Close the XML if still open
+		if (this.exportSingleFile) {
+			out.writeEndElement();
+			out.writeEndDocument();
+		}
+		if (out != null) {
+			out.close();
 		}
 		workbook.close();
 		inputStream.close();
 	}
-	
+
 	/**
-	 * Writes out an XML cell based on an Excel cell's actual value
+	 * Parses an inputstream containin xlsx into an outputStream containing XML
 	 * 
-	 * @param cell The Excel cell
-	 * @param out the output stream
-	 * @param columns the Map with column titles
+	 * @param inputStream
+	 *            the source
+	 * @param outputStream
+	 *            the result
+	 * @throws IOException
+	 * @throws XMLStreamException
 	 */
-	private void writeCell(final Cell cell, final XMLStreamWriter out, final Map<String, String> columns) {
-	
-			String cellValue = this.getCellValue(cell);
-			int col = cell.getColumnIndex();
-			int row =	cell.getRowIndex();
-			this.writeAnyCell(row, col, cellValue, out, columns);
+	public void parse(final InputStream inputStream, final OutputStream outputStream)
+			throws IOException, XMLStreamException {
+		XSSFWorkbook workbook = new XSSFWorkbook(inputStream);
+		XMLStreamWriter out = this.getXMLWriter(outputStream);
+		out.writeStartDocument();
+		out.writeStartElement("workbook");
+		int sheetCount = workbook.getNumberOfSheets();
+		for (int i = 0; i < sheetCount; i++) {
+			final XSSFSheet sheet = workbook.getSheetAt(i);
+			try {
+				this.export(sheet, out);
+			} catch (UnsupportedEncodingException | FileNotFoundException | XMLStreamException
+					| FactoryConfigurationError e) {
+				e.printStackTrace();
+			}
+		}
+		out.writeEndElement();
+		out.writeEndDocument();
+		out.close();
+		workbook.close();
 	}
 
 	/**
 	 * Writes out an XML cell based on coordinates and provided value
-	 * @param row the row index of the cell
-	 * @param col the column index
-	 * @param cellValue value of the cell, can be null for an empty cell
-	 * @param out the XML output stream
-	 * @param columns the Map with column titles
+	 * 
+	 * @param row
+	 *            the row index of the cell
+	 * @param col
+	 *            the column index
+	 * @param cellValue
+	 *            value of the cell, can be null for an empty cell
+	 * @param out
+	 *            the XML output stream
+	 * @param columns
+	 *            the Map with column titles
 	 */
 	private void writeAnyCell(final int row, final int col, final String cellValue, final XMLStreamWriter out,
 			final Map<String, String> columns) {
@@ -300,7 +393,26 @@ public class E2xCmdline {
 	}
 
 	/**
-	 * Gets field names from column titles and writes the titles element with columns out
+	 * Writes out an XML cell based on an Excel cell's actual value
+	 * 
+	 * @param cell
+	 *            The Excel cell
+	 * @param out
+	 *            the output stream
+	 * @param columns
+	 *            the Map with column titles
+	 */
+	private void writeCell(final Cell cell, final XMLStreamWriter out, final Map<String, String> columns) {
+
+		String cellValue = this.getCellValue(cell);
+		int col = cell.getColumnIndex();
+		int row = cell.getRowIndex();
+		this.writeAnyCell(row, col, cellValue, out, columns);
+	}
+
+	/**
+	 * Gets field names from column titles and writes the titles element with
+	 * columns out
 	 *
 	 * @param row
 	 *            the row to parse
@@ -359,6 +471,7 @@ public class E2xCmdline {
 				if (this.exportEmptyCells) {
 					while (count < columnIndex) {
 						this.writeAnyCell(rowIndex, count, null, out, columns);
+						count++;
 					}
 				}
 				this.writeCell(cell, out, columns);

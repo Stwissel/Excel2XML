@@ -59,6 +59,7 @@ public class E2xCmdline {
 		options.addOption("i", "input", true, "Input xlsx File");
 		options.addOption("o", "output", true, "Output XML file");
 		options.addOption("w", "workbooks", true, "optional: Workbook numbers to export 0,1,2,...,n");
+		options.addOption("e", "empty", false, "optional: generate tags for empty cells");
 		final CommandLine cmd = parser.parse(options, args);
 		E2xCmdline ex = new E2xCmdline(cmd, options);
 		ex.parse();
@@ -67,6 +68,7 @@ public class E2xCmdline {
 	}
 
 	private final boolean exportAllSheets;
+	private final boolean exportEmptyCells;
 	// Input file with extension
 	private String inputFileName;
 	// Output file without extension!!
@@ -103,6 +105,8 @@ public class E2xCmdline {
 			// We add the .xml entry later anyway
 			this.outputFileName = this.inputFileName;
 		}
+
+		this.exportEmptyCells = cmd.hasOption("e");
 
 		if (!canContinue) {
 			final HelpFormatter formatter = new HelpFormatter();
@@ -158,122 +162,6 @@ public class E2xCmdline {
 
 	}
 
-	/**
-	 * Gets field names from column titles
-	 *
-	 * @param row
-	 *            the row to parse
-	 * @param columns
-	 *            the map with the values
-	 */
-	private void writeFirstRow(Row row, final XMLStreamWriter out, final Map<String, String> columns) {
-		Iterator<Cell> cellIterator = row.iterator();
-		int count = 0;
-		try {
-			out.writeStartElement("columns");
-			while (cellIterator.hasNext()) {
-				Cell cell = cellIterator.next();
-				final String cellValue = this.getCellValue(cell, count);
-				if (cellValue != null) {
-					columns.put(String.valueOf(cell.getColumnIndex()), cellValue);
-					out.writeStartElement("column");
-					out.writeAttribute("title",cellValue);
-					out.writeAttribute("col", String.valueOf(cell.getColumnIndex()));
-					out.writeEndElement();
-				}
-				count++;
-			}
-			out.writeEndElement();
-		} catch (XMLStreamException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-
-	/**
-	 * Reads the input file and exports all sheets
-	 *
-	 * @throws IOException
-	 * @throws FactoryConfigurationError
-	 * @throws XMLStreamException
-	 */
-	private void parse() throws IOException {
-		final FileInputStream inputStream = new FileInputStream(new File(this.inputFileName));
-		XSSFWorkbook workbook = new XSSFWorkbook(inputStream);
-		int sheetCount = workbook.getNumberOfSheets();
-		if (this.exportAllSheets) {
-			for (int i = 0; i < sheetCount; i++) {
-				final XSSFSheet sheet = workbook.getSheetAt(i);
-				try {
-					this.export(sheet);
-				} catch (UnsupportedEncodingException | FileNotFoundException | XMLStreamException
-						| FactoryConfigurationError e) {
-					e.printStackTrace();
-				}
-			}
-		} else {
-			this.sheetNumbers.forEach(bigI -> {
-				int i = bigI.intValue();
-				if (i < sheetCount) {
-					final XSSFSheet sheet = workbook.getSheetAt(i);
-
-					try {
-						this.export(sheet);
-					} catch (UnsupportedEncodingException | FileNotFoundException | XMLStreamException
-							| FactoryConfigurationError e) {
-						e.printStackTrace();
-					}
-				} else {
-					System.err.println("I don't have a sheet at position " + String.valueOf(i));
-				}
-			});
-		}
-		workbook.close();
-		inputStream.close();
-	}
-
-	private void writeRow(final Row row, final XMLStreamWriter out, final Map<String, String> columns) {
-		try {
-			out.writeStartElement("row");
-			final String rowNum = String.valueOf(row.getRowNum());
-			out.writeAttribute("row", rowNum);
-			Iterator<Cell> cellIterator = row.iterator();
-			while (cellIterator.hasNext()) {
-				Cell cell = cellIterator.next();
-				this.writeCell(cell, out, columns);
-			}
-			out.writeEndElement();
-		} catch (XMLStreamException e) {
-			e.printStackTrace();
-		}
-
-	}
-
-	private void writeCell(final Cell cell, final XMLStreamWriter out, final Map<String, String> columns) {
-		try {
-			String cellValue = this.getCellValue(cell);
-			if (cellValue != null) {
-				out.writeStartElement("cell");
-				String colNum = String.valueOf(cell.getColumnIndex());
-				out.writeAttribute("row", String.valueOf(cell.getRowIndex()));
-				out.writeAttribute("col", colNum);
-				if (columns.containsKey(colNum)) {
-					out.writeAttribute("title", columns.get(colNum));
-				}
-
-				if (cellValue.contains("<") || cellValue.contains(">")) {
-					out.writeCData(cellValue);
-				} else {
-					out.writeCharacters(cellValue);
-				}
-				out.writeEndElement();
-			}
-		} catch (XMLStreamException e) {
-			e.printStackTrace();
-		}
-
-	}
-
 	private String getCellValue(final Cell cell) {
 		return this.getCellValue(cell, -1);
 	}
@@ -317,6 +205,170 @@ public class E2xCmdline {
 			cellValue = null;
 		}
 		return cellValue;
+	}
+
+	/**
+	 * Reads the input file and exports all sheets
+	 *
+	 * @throws IOException
+	 * @throws FactoryConfigurationError
+	 * @throws XMLStreamException
+	 */
+	private void parse() throws IOException {
+		final FileInputStream inputStream = new FileInputStream(new File(this.inputFileName));
+		XSSFWorkbook workbook = new XSSFWorkbook(inputStream);
+		int sheetCount = workbook.getNumberOfSheets();
+		if (this.exportAllSheets) {
+			for (int i = 0; i < sheetCount; i++) {
+				final XSSFSheet sheet = workbook.getSheetAt(i);
+				try {
+					this.export(sheet);
+				} catch (UnsupportedEncodingException | FileNotFoundException | XMLStreamException
+						| FactoryConfigurationError e) {
+					e.printStackTrace();
+				}
+			}
+		} else {
+			this.sheetNumbers.forEach(bigI -> {
+				int i = bigI.intValue();
+				if (i < sheetCount) {
+					final XSSFSheet sheet = workbook.getSheetAt(i);
+
+					try {
+						this.export(sheet);
+					} catch (UnsupportedEncodingException | FileNotFoundException | XMLStreamException
+							| FactoryConfigurationError e) {
+						e.printStackTrace();
+					}
+				} else {
+					System.err.println("I don't have a sheet at position " + String.valueOf(i));
+				}
+			});
+		}
+		workbook.close();
+		inputStream.close();
+	}
+	
+	/**
+	 * Writes out an XML cell based on an Excel cell's actual value
+	 * 
+	 * @param cell The Excel cell
+	 * @param out the output stream
+	 * @param columns the Map with column titles
+	 */
+	private void writeCell(final Cell cell, final XMLStreamWriter out, final Map<String, String> columns) {
+	
+			String cellValue = this.getCellValue(cell);
+			int col = cell.getColumnIndex();
+			int row =	cell.getRowIndex();
+			this.writeAnyCell(row, col, cellValue, out, columns);
+	}
+
+	/**
+	 * Writes out an XML cell based on coordinates and provided value
+	 * @param row the row index of the cell
+	 * @param col the column index
+	 * @param cellValue value of the cell, can be null for an empty cell
+	 * @param out the XML output stream
+	 * @param columns the Map with column titles
+	 */
+	private void writeAnyCell(final int row, final int col, final String cellValue, final XMLStreamWriter out,
+			final Map<String, String> columns) {
+		try {
+			out.writeStartElement("cell");
+			String colNum = String.valueOf(col);
+			out.writeAttribute("row", String.valueOf(row));
+			out.writeAttribute("col", colNum);
+			if (columns.containsKey(colNum)) {
+				out.writeAttribute("title", columns.get(colNum));
+			}
+			if (cellValue != null) {
+				if (cellValue.contains("<") || cellValue.contains(">")) {
+					out.writeCData(cellValue);
+				} else {
+					out.writeCharacters(cellValue);
+				}
+			} else {
+				out.writeAttribute("empty", "true");
+			}
+			out.writeEndElement();
+
+		} catch (XMLStreamException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	/**
+	 * Gets field names from column titles and writes the titles element with columns out
+	 *
+	 * @param row
+	 *            the row to parse
+	 * @param columns
+	 *            the map with the values
+	 */
+	private void writeFirstRow(Row row, final XMLStreamWriter out, final Map<String, String> columns) {
+		Iterator<Cell> cellIterator = row.iterator();
+		int count = 0;
+		try {
+			out.writeStartElement("columns");
+			while (cellIterator.hasNext()) {
+				Cell cell = cellIterator.next();
+				// Generate empty headers if required
+				if (this.exportEmptyCells) {
+					int columnIndex = cell.getColumnIndex();
+					while (count < columnIndex) {
+						String noLabel = "NoLabel" + String.valueOf(count);
+						columns.put(String.valueOf(count), noLabel);
+						out.writeStartElement("column");
+						out.writeAttribute("empty", "true");
+						out.writeAttribute("col", String.valueOf(count));
+						out.writeAttribute("title", noLabel);
+						out.writeEndElement();
+						count++;
+					}
+				}
+
+				final String cellValue = this.getCellValue(cell, count);
+				if (cellValue != null) {
+					columns.put(String.valueOf(cell.getColumnIndex()), cellValue);
+					out.writeStartElement("column");
+					out.writeAttribute("title", cellValue);
+					out.writeAttribute("col", String.valueOf(cell.getColumnIndex()));
+					out.writeEndElement();
+				}
+				count++;
+			}
+			out.writeEndElement();
+		} catch (XMLStreamException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void writeRow(final Row row, final XMLStreamWriter out, final Map<String, String> columns) {
+		try {
+			int rowIndex = row.getRowNum();
+			out.writeStartElement("row");
+			final String rowNum = String.valueOf(rowIndex);
+			out.writeAttribute("row", rowNum);
+			int count = 0;
+			Iterator<Cell> cellIterator = row.iterator();
+			while (cellIterator.hasNext()) {
+				Cell cell = cellIterator.next();
+				int columnIndex = cell.getColumnIndex();
+				if (this.exportEmptyCells) {
+					while (count < columnIndex) {
+						this.writeAnyCell(rowIndex, count, null, out, columns);
+					}
+				}
+				this.writeCell(cell, out, columns);
+				count++;
+			}
+			out.writeEndElement();
+		} catch (XMLStreamException e) {
+			e.printStackTrace();
+		}
+
 	}
 
 }

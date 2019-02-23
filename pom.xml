@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>net.wissel.tools</groupId>
 	<artifactId>net.wissel.tools.excel</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.1.0</version>
 	<name>Excel2XML</name>
 	<description>Converts Excel Tables into more digestible XML. Mainly for XSLT Report generation</description>
 	<properties>
@@ -49,6 +49,7 @@
 									<mainClass>net.wissel.tools.excel.E2xCmdline</mainClass>
 								</transformer>
 							</transformers>
+							<outputFile>/Users/swissel/bin/excel2xml.jar</outputFile>
 						</configuration>
 					</execution>
 				</executions>

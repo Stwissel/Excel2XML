@@ -23,16 +23,17 @@ This enables a simplified creation of XML stylesheets with XPath syntax.
 
 ## Syntax
 
-`java -jar excel2xml.jar -i somefile.xslt [-o somefile.xml] [-e] [-s] [-w3,4]` 
+`java -jar excel2xml.jar -i somefile.xlsx [-o somefile.xml] [-e] [-t template.xslt] [-s] [-w3,4]` 
 
 ## Parameters
 
 <ul> 
- <li>-i the input file in xslx format</li> 
- <li>-o the output file. If missing same name as input, but extension xml</li> 
- <li>-e generate empty cells. If missing: cells without data are skipped</li> 
- <li>-s generate a single file for the whole workbook. If missing: creates one file per sheet, uses sheet name as file name</li> 
- <li>-w comma separated list of sheets to export. Starts at 0. If missing: exports all sheets. Instead of sheet number, sheet names can be used</li> 
+ <li> -i the input file in xslx format</li> 
+ <li> -o the output file. If missing same name as input, but extension xml</li> 
+ <li> -e generate empty cells. If missing: cells without data are skipped</li> 
+ <li> -s generate a single file for the whole workbook. If missing: creates one file per sheet, uses sheet name as file name</li> 
+ <li> -w comma separated list of sheets to export. Starts at 0. If missing: exports all sheets. Instead of sheet number, sheet names can be used</li> 
+ <li> -t optional xslt template, will run against the XML. Adjust your output file name (extension) accordingly
 </ul>  
  
  This isn't a sophisticated tool, but an itch I had to scratch.

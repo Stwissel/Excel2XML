@@ -57,10 +57,11 @@ public class E2xCmdline {
         final CommandLineParser parser = new DefaultParser();
         final Options options = new Options();
         options.addOption("i", "input", true, "Input xlsx File");
-        options.addOption("o", "output", true, "Output XML file");
+        options.addOption("o", "output", true, "Output XML (or otherwise if transformed) file");
         options.addOption("w", "workbooks", true, "optional: Workbook numbers to export 0,1,2,...,n");
         options.addOption("e", "empty", false, "optional: generate tags for empty cells");
         options.addOption("s", "single", false, "optional: export all worksheets into a single output file");
+        options.addOption("t", "template", true, "optional: transform resulting XML file(s) using XSLT Stylesheet");
         final CommandLine cmd = parser.parse(options, args);
         final E2xCmdline ex = new E2xCmdline(cmd, options);
         ex.parse();
@@ -71,6 +72,10 @@ public class E2xCmdline {
     private final boolean exportAllSheets;
     private final boolean exportEmptyCells;
     private final boolean exportSingleFile;
+    private final boolean transform;
+    private final String outputExtension;
+    // Name of an optional template
+    private final String templateName;
 
     // Input file with extension
     private String inputFileName;
@@ -79,6 +84,8 @@ public class E2xCmdline {
 
     // The sheet number or sheet names to export
     private final Set<String> sheetNumbers = new HashSet<>();
+   
+    
 
     /**
      * Constructor for programatic use
@@ -92,6 +99,9 @@ public class E2xCmdline {
         this.exportAllSheets = allSheets;
         this.exportEmptyCells = emptyCells;
         this.exportSingleFile = true;
+        this.transform = false;
+        this.templateName = null;
+        this.outputExtension=".xml";
     }
 
     /**
@@ -122,14 +132,22 @@ public class E2xCmdline {
         if (cmd.hasOption("o")) {
             // Strip .xml since we need the sheet number
             // before the .xml entry if we have more than one sheet
-            this.outputFileName = cmd.getOptionValue("o");
-            if (this.outputFileName.endsWith(E2xCmdline.OUTPUT_EXTENSION)) {
-                this.outputFileName = this.outputFileName.substring(0,
-                        this.outputFileName.length() - E2xCmdline.OUTPUT_EXTENSION.length());
-            }
+            String outputFileNameCandidate = cmd.getOptionValue("o");
+            int lastDot = outputFileNameCandidate.lastIndexOf(".");
+            this.outputExtension = (lastDot < 1) ? ".xml" : outputFileNameCandidate.substring(lastDot);
+            this.outputFileName = outputFileNameCandidate.substring(0, lastDot);
         } else {
             // We add the .xml entry later anyway
             this.outputFileName = this.inputFileName;
+            this.outputExtension = ".xml";
+        }
+        
+        if (cmd.hasOption("t")) {
+            this.transform = true;
+            this.templateName = cmd.getOptionValue("t");
+        } else {
+            this.transform = false;
+            this.templateName=  null;
         }
 
         this.exportEmptyCells = cmd.hasOption("e");
@@ -154,6 +172,10 @@ public class E2xCmdline {
             System.out.println("- Exporting all sheets");
         } else {
             System.out.println("- Exporting selected sheets");
+        }
+        
+        if (this.transform) {
+            System.out.println("- transforming using "+String.valueOf(this.templateName));
         }
 
     }
@@ -290,12 +312,12 @@ public class E2xCmdline {
 
     private XMLStreamWriter getXMLWriter(final XSSFSheet sheet)
             throws FileNotFoundException, UnsupportedEncodingException, XMLStreamException {
-        final String outputSheetName = this.outputFileName + "." + sheet.getSheetName() + E2xCmdline.OUTPUT_EXTENSION;
+        final String outputSheetName = this.outputFileName + "." + sheet.getSheetName() + this.outputExtension;
         final File outFile = new File(outputSheetName);
         if (outFile.exists()) {
             outFile.delete();
         }
-        final OutputStream outputStream = new FileOutputStream(outFile);
+        final OutputStream outputStream = new TransformingOutputStream(new FileOutputStream(outFile), this.templateName);
         return this.getXMLWriter(outputStream);
     }
 

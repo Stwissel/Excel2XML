@@ -1,5 +1,4 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>net.wissel.tools</groupId>
 	<artifactId>net.wissel.tools.excel</artifactId>
@@ -7,7 +6,8 @@
 	<name>Excel2XML</name>
 	<description>Converts Excel Tables into more digestible XML. Mainly for XSLT Report generation</description>
 	<properties>
-		<jdk.version>1.8</jdk.version>
+		<jdk.version>11</jdk.version>
+		<maven.version>[3.8.1,)</maven.version>
 	</properties>
 	<build>
 		<finalName>excel2xml</finalName>
@@ -15,7 +15,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-eclipse-plugin</artifactId>
-				<version>2.9</version>
+				<version>2.10</version>
 				<configuration>
 					<downloadSources>true</downloadSources>
 					<downloadJavadocs>true</downloadJavadocs>
@@ -24,7 +24,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>2.3.2</version>
+				<version>3.10.1</version>
 				<configuration>
 					<source>${jdk.version}</source>
 					<target>${jdk.version}</target>
@@ -33,7 +33,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>
-				<version>2.3</version>
+				<version>3.3.0</version>
 				<executions>
 					<!-- Run shade goal on package phase -->
 					<execution>
@@ -44,12 +44,34 @@
 						<configuration>
 							<transformers>
 								<!-- add Main-Class to manifest file -->
-								<transformer
-									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
 									<mainClass>net.wissel.tools.excel.E2xCmdline</mainClass>
 								</transformer>
 							</transformers>
 							<outputFile>${project.build.directory}/bin/excel2xml.jar</outputFile>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<version>3.1.0</version>
+				<executions>
+					<execution>
+						<id>enforce-maven</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<requireMavenVersion>
+									<version>${maven.version}</version>
+								</requireMavenVersion>
+								<requireJavaVersion>
+									<version>${jdk.version}</version>
+								</requireJavaVersion>
+							</rules>
 						</configuration>
 					</execution>
 				</executions>
@@ -60,12 +82,12 @@
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi-ooxml</artifactId>
-			<version>3.16</version>
+			<version>5.2.2</version>
 		</dependency>
 		<dependency>
 			<groupId>commons-cli</groupId>
 			<artifactId>commons-cli</artifactId>
-			<version>1.4</version>
+			<version>1.5.0</version>
 		</dependency>
 	</dependencies>
 </project>

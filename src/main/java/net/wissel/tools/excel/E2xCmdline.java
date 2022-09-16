@@ -30,12 +30,10 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-
 import javax.xml.stream.FactoryConfigurationError;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -58,10 +56,13 @@ public class E2xCmdline {
         final Options options = new Options();
         options.addOption("i", "input", true, "Input xlsx File");
         options.addOption("o", "output", true, "Output XML (or otherwise if transformed) file");
-        options.addOption("w", "workbooks", true, "optional: Workbook numbers to export 0,1,2,...,n");
+        options.addOption("w", "workbooks", true,
+                "optional: Workbook numbers to export 0,1,2,...,n");
         options.addOption("e", "empty", false, "optional: generate tags for empty cells");
-        options.addOption("s", "single", false, "optional: export all worksheets into a single output file");
-        options.addOption("t", "template", true, "optional: transform resulting XML file(s) using XSLT Stylesheet");
+        options.addOption("s", "single", false,
+                "optional: export all worksheets into a single output file");
+        options.addOption("t", "template", true,
+                "optional: transform resulting XML file(s) using XSLT Stylesheet");
         final CommandLine cmd = parser.parse(options, args);
         final E2xCmdline ex = new E2xCmdline(cmd, options);
         ex.parse();
@@ -84,16 +85,16 @@ public class E2xCmdline {
 
     // The sheet number or sheet names to export
     private final Set<String> sheetNumbers = new HashSet<>();
-   
-    
+
+
 
     /**
      * Constructor for programatic use
      *
      * @param emptyCells
-     *            Should it export empty cells
+     *        Should it export empty cells
      * @param allSheets
-     *            Should it export all sheets
+     *        Should it export all sheets
      */
     public E2xCmdline(final boolean emptyCells, final boolean allSheets) {
         this.exportAllSheets = allSheets;
@@ -101,16 +102,16 @@ public class E2xCmdline {
         this.exportSingleFile = true;
         this.transform = false;
         this.templateName = null;
-        this.outputExtension=".xml";
+        this.outputExtension = ".xml";
     }
 
     /**
      * Constructor for command line use
      *
      * @param cmd
-     *            the parameters ready parsed
+     *        the parameters ready parsed
      * @param options
-     *            the expected options
+     *        the expected options
      */
     public E2xCmdline(final CommandLine cmd, final Options options) {
         boolean canContinue = true;
@@ -134,20 +135,21 @@ public class E2xCmdline {
             // before the .xml entry if we have more than one sheet
             String outputFileNameCandidate = cmd.getOptionValue("o");
             int lastDot = outputFileNameCandidate.lastIndexOf(".");
-            this.outputExtension = (lastDot < 1) ? ".xml" : outputFileNameCandidate.substring(lastDot);
+            this.outputExtension =
+                    (lastDot < 1) ? ".xml" : outputFileNameCandidate.substring(lastDot);
             this.outputFileName = outputFileNameCandidate.substring(0, lastDot);
         } else {
             // We add the .xml entry later anyway
             this.outputFileName = this.inputFileName;
             this.outputExtension = ".xml";
         }
-        
+
         if (cmd.hasOption("t")) {
             this.transform = true;
             this.templateName = cmd.getOptionValue("t");
         } else {
             this.transform = false;
-            this.templateName=  null;
+            this.templateName = null;
         }
 
         this.exportEmptyCells = cmd.hasOption("e");
@@ -173,9 +175,9 @@ public class E2xCmdline {
         } else {
             System.out.println("- Exporting selected sheets");
         }
-        
+
         if (this.transform) {
-            System.out.println("- transforming using "+String.valueOf(this.templateName));
+            System.out.println("- transforming using " + String.valueOf(this.templateName));
         }
 
     }
@@ -184,9 +186,9 @@ public class E2xCmdline {
      * Parses an inputstream containin xlsx into an outputStream containing XML
      *
      * @param inputStream
-     *            the source
+     *        the source
      * @param outputStream
-     *            the result
+     *        the result
      * @throws IOException
      * @throws XMLStreamException
      */
@@ -201,7 +203,7 @@ public class E2xCmdline {
             final XSSFSheet sheet = workbook.getSheetAt(i);
             try {
                 this.export(sheet, out);
-            } catch (UnsupportedEncodingException | FileNotFoundException | XMLStreamException
+            } catch (FileNotFoundException | XMLStreamException
                     | FactoryConfigurationError e) {
                 e.printStackTrace();
             }
@@ -222,7 +224,7 @@ public class E2xCmdline {
      * @throws FileNotFoundException
      */
     private void export(final XSSFSheet sheet, final XMLStreamWriter out)
-            throws UnsupportedEncodingException, XMLStreamException, FactoryConfigurationError, FileNotFoundException {
+            throws XMLStreamException, FactoryConfigurationError, FileNotFoundException {
         boolean isFirst = true;
         final Map<String, String> columns = new HashMap<>();
         final String sheetName = sheet.getSheetName();
@@ -245,7 +247,7 @@ public class E2xCmdline {
 
     private boolean exportThisSheet(final XSSFSheet sheet, final int i) {
         String name1 = sheet.getSheetName().trim().toLowerCase();
-        String name2 = String.valueOf(i);       
+        String name2 = String.valueOf(i);
         return this.sheetNumbers.contains(name1) || this.sheetNumbers.contains(name2);
     }
 
@@ -255,7 +257,7 @@ public class E2xCmdline {
 
     private String getCellValue(final Cell cell, final int count) {
         String cellValue = null;
-        final CellType ct = cell.getCellTypeEnum();
+        final CellType ct = cell.getCellType();
         switch (ct) {
             case STRING:
                 cellValue = cell.getStringCellValue();
@@ -272,7 +274,7 @@ public class E2xCmdline {
                 }
                 break;
             case FORMULA:
-                final CellType cacheCellType = cell.getCachedFormulaResultTypeEnum(); {
+                final CellType cacheCellType = cell.getCachedFormulaResultType(); {
                 switch (cacheCellType) {
                     case STRING:
                         cellValue = cell.getStringCellValue();
@@ -298,7 +300,7 @@ public class E2xCmdline {
      * Create an XML Streamwriter to write into an output Stream
      *
      * @param outputStream
-     *            the steam e.g. a file
+     *        the steam e.g. a file
      * @return the StreamWriter
      * @throws XMLStreamException
      * @throws UnsupportedEncodingException
@@ -306,18 +308,21 @@ public class E2xCmdline {
     private XMLStreamWriter getXMLWriter(final OutputStream outputStream)
             throws UnsupportedEncodingException, XMLStreamException {
         final XMLOutputFactory factory = XMLOutputFactory.newInstance();
-        final XMLStreamWriter out = factory.createXMLStreamWriter(new OutputStreamWriter(outputStream, "utf-8"));
+        final XMLStreamWriter out =
+                factory.createXMLStreamWriter(new OutputStreamWriter(outputStream, "utf-8"));
         return out;
     }
 
     private XMLStreamWriter getXMLWriter(final XSSFSheet sheet)
             throws FileNotFoundException, UnsupportedEncodingException, XMLStreamException {
-        final String outputSheetName = this.outputFileName + "." + sheet.getSheetName() + this.outputExtension;
+        final String outputSheetName =
+                this.outputFileName + "." + sheet.getSheetName() + this.outputExtension;
         final File outFile = new File(outputSheetName);
         if (outFile.exists()) {
             outFile.delete();
         }
-        final OutputStream outputStream = new TransformingOutputStream(new FileOutputStream(outFile), this.templateName);
+        final OutputStream outputStream =
+                new TransformingOutputStream(new FileOutputStream(outFile), this.templateName);
         return this.getXMLWriter(outputStream);
     }
 
@@ -388,17 +393,18 @@ public class E2xCmdline {
      * Writes out an XML cell based on coordinates and provided value
      *
      * @param row
-     *            the row index of the cell
+     *        the row index of the cell
      * @param col
-     *            the column index
+     *        the column index
      * @param cellValue
-     *            value of the cell, can be null for an empty cell
+     *        value of the cell, can be null for an empty cell
      * @param out
-     *            the XML output stream
+     *        the XML output stream
      * @param columns
-     *            the Map with column titles
+     *        the Map with column titles
      */
-    private void writeAnyCell(final int row, final int col, final String cellValue, final XMLStreamWriter out,
+    private void writeAnyCell(final int row, final int col, final String cellValue,
+            final XMLStreamWriter out,
             final Map<String, String> columns) {
         try {
             out.writeStartElement("cell");
@@ -429,13 +435,14 @@ public class E2xCmdline {
      * Writes out an XML cell based on an Excel cell's actual value
      *
      * @param cell
-     *            The Excel cell
+     *        The Excel cell
      * @param out
-     *            the output stream
+     *        the output stream
      * @param columns
-     *            the Map with column titles
+     *        the Map with column titles
      */
-    private void writeCell(final Cell cell, final XMLStreamWriter out, final Map<String, String> columns) {
+    private void writeCell(final Cell cell, final XMLStreamWriter out,
+            final Map<String, String> columns) {
 
         final String cellValue = this.getCellValue(cell);
         final int col = cell.getColumnIndex();
@@ -448,11 +455,12 @@ public class E2xCmdline {
      * columns out
      *
      * @param row
-     *            the row to parse
+     *        the row to parse
      * @param columns
-     *            the map with the values
+     *        the map with the values
      */
-    private void writeFirstRow(final Row row, final XMLStreamWriter out, final Map<String, String> columns) {
+    private void writeFirstRow(final Row row, final XMLStreamWriter out,
+            final Map<String, String> columns) {
         final Iterator<Cell> cellIterator = row.iterator();
         int count = 0;
         try {
@@ -490,7 +498,8 @@ public class E2xCmdline {
         }
     }
 
-    private void writeRow(final Row row, final XMLStreamWriter out, final Map<String, String> columns) {
+    private void writeRow(final Row row, final XMLStreamWriter out,
+            final Map<String, String> columns) {
         try {
             final int rowIndex = row.getRowNum();
             out.writeStartElement("row");
